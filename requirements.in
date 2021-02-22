@@ -1,0 +1,12 @@
+django==2.2
+django-extensions
+django-seed
+Faker
+getconf
+isort
+mysqlclient
+pillow
+flake8
+jupyter
+uwsgi
+tabula-py
