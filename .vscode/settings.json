@@ -1,6 +1,0 @@
-{
-    "python.pythonPath": "venv/bin/python",
-    "git.ignoreLimitWarning": true,
-    "python.linting.flake8Enabled": true,
-    "python.linting.enabled": true
-}

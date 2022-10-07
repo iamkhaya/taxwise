@@ -1,12 +1,8 @@
-django==2.2
-django-extensions
-django-seed
-Faker
+django
+djangorestframework
 getconf
-isort
 mysqlclient
-pillow
-flake8
-jupyter
-uwsgi
+numpy==1.22.4
+pandas
 tabula-py
+uwsgi
