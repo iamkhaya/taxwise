@@ -2,7 +2,7 @@ import pandas as pd
 import tabula
 from django.core.management.base import BaseCommand
 
-from taxwise.api.models import Tarriff
+from taxwise.api.models import ChapterSection, Tarriff
 
 
 class Command(BaseCommand):
@@ -50,6 +50,16 @@ class Command(BaseCommand):
                     if data.value_counts().size == 2:
                         # print("****** sub-heading row ******")
                         # print(data)
+                        print("****** sub-heading row ******")
+                        if data.Heading and data.Heading != 'Heading' and str(data.Heading) != 'nan':
+                            print(data)
+                            chapter_section = ChapterSection(
+                                chapter=str(data["Heading"]).split(".")[0],
+                                section=data["Heading"],
+                                description=data["Description"],
+                            )
+                            chapter_section.save()
+                            print('********************************************************************************************************')
                         # print('********************************************************************************************************')
                         continue
                     else:
