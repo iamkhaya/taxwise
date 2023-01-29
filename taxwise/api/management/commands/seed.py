@@ -7,99 +7,139 @@ from taxwise.api.models import ChapterSection, Tarriff
 
 class Command(BaseCommand):
     """
-    This command will create a base32 secret for the user, and show a QR code for scanning.
+    This command will read tarriffs from the taffiff code and write them to the db.
     """
 
-    help = "Generate TOTP code for use with TOTP login"
+    help = "Generate tarriffs"
 
     PDF_FILE_NAME = "zimra-2022.pdf"
     PDF_PAGE_RANGE = "990-1050"
 
     def map_columns(self, num_columns):
-        # if num_columns == 4:
-        #     return ["Commodity Code", "Description", "Quantity", "General"]
+
         if num_columns == 5:
             return ["Heading", "Commodity Code", "Description", "Quantity", "MFN"]
         elif num_columns == 6:
             return ["Heading", "Commodity Code", "Description", "Quantity", "General", "MFN"]
         elif num_columns == 7:
             return ["Heading", "Commodity Code", "Description", "Unamed", "Quantity", "General", "MFN"]
-        # elif num_columns == 8:
-        #     return ["Heading", "Commodity Code", "Description", "Quantity", "General", "MFN", "Other", "Other"]
 
         else:
             raise ValueError(f"Invalid number of columns: {num_columns}")
 
-    def _process_type_1_row(self, row: pd.Series):
+    def _process_page_type_1(self, page_as_df):
         """
         Process Type 1 type
         """
-        print("****** start : tarriff row type 1******")
 
-        row = row.dropna()
+        for row in page_as_df.iterrows():
+            data = row[1]
 
-        print("****** end : tarriff row type 1******")
+            if "No." in data.index.values or "Heading" in data.index.values:
 
-        tarriff = Tarriff(
-            heading=row.get("Heading"),
-            commodity_code=row.get("Commodity Code", ""),
-            description=row.get("Description", ""),
-            statistical_unit=row.get("Quantity", ""),
-            general_rate_of_duty=row.get("General", ""),
-            mtf_rate_of_duty=row.get("MFN", ""),
-        )
-        tarriff.save()
+                print("****** data row ******")
+                # print(data)
+                print("type : " + str(type(row[1])))
+                print("**********************")
 
-    def _process_type_2_row(self, row: pd.Series):
+                print("****** start : tarriff row type 1******")
+                row.columns = ["Heading", "Commodity Code", "Description", "Quantity", "MFN"]
+
+                row = row.dropna()
+
+                print("****** end : tarriff row type 1******")
+
+                tarriff = Tarriff(
+                    heading=row.get("Heading"),
+                    commodity_code=row.get("Commodity Code", ""),
+                    description=row.get("Description", ""),
+                    statistical_unit=row.get("Quantity", ""),
+                    general_rate_of_duty=row.get("General", ""),
+                    mtf_rate_of_duty=row.get("MFN", ""),
+                )
+                tarriff.save()
+
+    def _process_page_type_2(self, page_as_df):
         """
-        Process Type 1 type
+        Page with type conforming to the example below:
+
+        Page number : 0 has 6 columns
+        ['No.', 'Code', 'Unnamed: 0', 'data', 'General', 'M.F.N.']
+        +----+-------+------------+---------------------------------+--------+-----------+----------+
+        |    |   No. | Code       | Unnamed: 0                      | data   | General   | M.F.N.   |
+        |----+-------+------------+---------------------------------+--------+-----------+----------|
+        |  0 |   nan | 8541.30.00 | - Thyristors, diacs and triacs, | 1. Kg  | 5%        | 5%       |
+        |  1 |   nan | nan        | other than photosensitive       | 2.u    | nan       | nan      |
+        |  2 |   nan | nan        | devices                         | nan    | nan       | nan      |
+        |  3 |   nan | nan        | - Photosensitive semiconductor  | nan    | nan       | nan      |
+        |  4 |   nan | nan        | devices, including photovoltaic | nan    | nan       | nan      |
         """
-        print("****** start : tarriff row type 2 ******")
-        print(row)
+        page_as_df.columns = ["Heading", "Commodity Code", "Description", "Quantity", "General", "MFN"]
+        print(tabulate(page_as_df, headers="keys", tablefmt="psql"))
+        print("**********************")
 
-        row = row.dropna()
-        # print(row)
+        for row in page_as_df.iterrows():
+            data = row[1]
 
-        general = ""
-        unit = ""
-        if row.get("Quantity"):
-            digits = [(i, c) for i, c in enumerate(row.get("Quantity")) if c.isdigit()]
-            print("-- digits :" + str(digits))
-            print("qty : " + row.get("Quantity"))
+            print(page_as_df)
+            if "No." in data.index.values or "Heading" in data.index.values:
 
-            if len(digits) > 1:
-                general = row.get("Quantity")[digits[1][0] :]
-                unit = row.get("Quantity")[: 1 * digits[1][0]]
+                print("****** data row ******")
 
-        tarriff = Tarriff(
-            heading=row.get("Heading"),
-            commodity_code=row.get("Commodity Code", ""),
-            description=row.get("Description", ""),
-            statistical_unit=unit or row.get("Quantity", ""),
-            general_rate_of_duty=row.get("General", "") or general,
-            mtf_rate_of_duty=row.get("MFN", ""),
-        )
-        tarriff.save()
+                print("type : " + str(type(row[1])))
+                print("**********************")
+                print("****** start : tarriff row type 2 ******")
+                print(row)
 
-    def _process_type_3_row(self, row: pd.Series):
+                general = ""
+                unit = ""
+                if data.notnull()["Quantity"]:
+                    print("qty : " + str(data["Quantity"]))
+                    digits = [(i, c) for i, c in enumerate(data.get("Quantity")) if c.isdigit()]
+                    print("-- digits :" + str(digits))
+
+                    if len(digits) > 1:
+                        general = data.get("Quantity")[digits[1][0] :]
+                        unit = data.get("Quantity")[: 1 * digits[1][0]]
+
+                tarriff = Tarriff(
+                    heading=data.get("Heading"),
+                    commodity_code=data.get("Commodity Code", ""),
+                    description=data.get("Description", ""),
+                    statistical_unit=unit or data.get("Quantity", ""),
+                    general_rate_of_duty=data.get("General", "") or general,
+                    mtf_rate_of_duty=data.get("MFN", ""),
+                )
+                tarriff.save()
+
+    def _process_page_type_3(self, page_as_df):
         """
         Process Type 3 type
         """
-        print("****** start : tarriff row type 2 ******")
-        print(row)
+        for row in page_as_df.iterrows():
+            data = row[1]
 
-        row = row.dropna()
-        print(row)
+            if "No." in data.index.values or "Heading" in data.index.values:
 
-        tarriff = Tarriff(
-            heading=row.get("Heading"),
-            commodity_code=row.get("Commodity Code", ""),
-            description=row.get("Description", ""),
-            statistical_unit=row.get("Quantity"),
-            general_rate_of_duty=row.get("General"),
-            mtf_rate_of_duty=row.get("MFN", ""),
-        )
-        tarriff.save()
+                print("****** data row ******")
+                # print(data)
+                print("type : " + str(type(row[1])))
+                print("**********************")
+                print("****** start : tarriff row type 3 ******")
+                print(row)
+
+                row = row.dropna()
+                print(row)
+
+                tarriff = Tarriff(
+                    heading=row.get("Heading"),
+                    commodity_code=row.get("Commodity Code", ""),
+                    description=row.get("Description", ""),
+                    statistical_unit=row.get("Quantity"),
+                    general_rate_of_duty=row.get("General"),
+                    mtf_rate_of_duty=row.get("MFN", ""),
+                )
+                tarriff.save()
 
     def _process_type_4_row(self, row: pd.Series):
         """
@@ -177,33 +217,23 @@ class Command(BaseCommand):
         else:
             raise ValueError(f"Unknown type with: {number_of_columns} columns")
 
-    def process_page_data(self, df):
+    def process_page_data(self, page_as_df):
         """
         Process the page
         """
-        page_type = self._get_page_type(number_of_columns=len(df.columns))
-
         try:
-            df.columns = self.map_columns(len(df.columns))
+            page_type = self._get_page_type(number_of_columns=len(page_as_df.columns))
         except ValueError:
-            print("skipping page : it has " + str(len(df.columns)) + "columns")
+            print("**** Unhandled page type *** ")
+            print(tabulate(page_as_df, headers="keys", tablefmt="psql"))
+            return
 
-        for row in df.iterrows():
-            data = row[1]
-
-            if "No." in data.index.values or "Heading" in data.index.values:
-
-                print("****** data row ******")
-                # print(data)
-                print("type : " + str(type(row[1])))
-                print("**********************")
-
-                if page_type == "type_1":
-                    self._process_type_1_row(data)
-                elif page_type == "type_2":
-                    self._process_type_2_row(data)
-                elif page_type == "type_3":
-                    self._process_type_3_row(data)
+        if page_type == "type_1":
+            self._process_page_type_1(page_as_df)
+        elif page_type == "type_2":
+            self._process_page_type_2(page_as_df)
+        elif page_type == "type_3":
+            self._process_page_type_3(page_as_df)
 
     def generate_tarriffs(self):
         try:
@@ -217,15 +247,14 @@ class Command(BaseCommand):
             print(f"An error occurred while reading the pdf file: {e}")
             return
 
-        for idx, df in enumerate(list_of_df):
-            if isinstance(df, pd.DataFrame):
-                print(f"Page number : {idx} has {len(df.columns)} columns")
-                print(df.axes[1].tolist())
-                print(tabulate(df, headers="keys", tablefmt="psql"))
-                # print(df)
-
+        for idx, page_df in enumerate(list_of_df):
+            if isinstance(page_df, pd.DataFrame):
                 print("---------------------------------")
-                self.process_page_data(df)
+                print(f"Page number : {idx} has {len(page_df.columns)} columns")
+                print(page_df.axes[1].tolist())
+                print(tabulate(page_df, headers="keys", tablefmt="psql"))
+                print("---------------------------------")
+                self.process_page_data(page_df)
 
     def handle(self, *args, **options):
         self.stdout.write("Seeding tarriffs...")
